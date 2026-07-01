@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="Monster Estate Admin Dashboard. Secure internal operating system for property management and lead tracking.">
+    <title>Monster Estate | Admin OS</title>
+
+    <!-- Preconnect for faster external resource loading -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://www.gstatic.com">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="preconnect" href="https://api.cloudinary.com">
+    <link rel="dns-prefetch" href="https://real-estate-db-86a1f-default-rtdb.asia-southeast1.firebasedatabase.app">
+
+    <!-- Google Fonts (non-blocking via link instead of CSS @import) -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap">
+
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Firebase Auth CDN (v8 compat) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <!-- Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+    <!-- Inline favicon to prevent browser 404 console errors -->
+    <link rel="icon" href="data:,">
+    <script>
+        const rawImageSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect width="400" height="300" fill="#f8f9fa"/><g transform="translate(150, 80)" stroke="#cccccc" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10 50 L50 10 L90 50" /><path d="M25 40 L25 15 H35 V28" /><rect x="20" y="50" width="60" height="50" /><rect x="40" y="68" width="20" height="32" /></g><text x="50%" y="210" dominant-baseline="middle" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="600" font-size="14" fill="#999999">No Image Available</text></svg>`;
+        const rawLogoSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="150" height="50" viewBox="0 0 150 50"><rect width="150" height="50" fill="#000000"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="bold" font-size="15" fill="#ffffff">MONSTER ESTATE</text></svg>`;
+        
+        window.PLACEHOLDER_IMAGE = 'data:image/svg+xml;base64,' + btoa(rawImageSvg);
+        window.PLACEHOLDER_LOGO = 'data:image/svg+xml;base64,' + btoa(rawLogoSvg);
+    </script>
+</head>
+
+<body>
+
+    <!-- Offline Notification Bar -->
+    <div id="offline-bar" class="offline-bar">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="1" y1="1" x2="23" y2="23"></line>
+            <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path>
+            <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path>
+            <path d="M10.71 5.05A16 16 0 0 1 22.56 9"></path>
+            <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path>
+            <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+            <line x1="12" y1="20" x2="12.01" y2="20"></line>
+        </svg>
+        You are offline. Changes will sync when reconnected.
+    </div>
+
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Login Overlay -->
+    <div id="login-overlay" class="login-overlay">
+        <img src="logo.webp" alt="Logo" class="login-minimal-logo"
+            onerror="this.onerror=null; this.src=window.PLACEHOLDER_LOGO;">
+        <div class="login-minimal-container">
+            <form id="email-login-form" class="login-minimal-form">
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label for="login-email"
+                        style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem; color: #000;">Email
+                        Address</label>
+                    <input type="email" id="login-email" class="saas-input login-input" placeholder="admin@domain.com"
+                        required>
+                </div>
+                <div class="form-group" style="margin-bottom: 2rem;">
+                    <label for="login-password"
+                        style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem; color: #000;">Password</label>
+                    <div class="password-wrapper" style="position: relative; display: flex; align-items: center;">
+                        <input type="password" id="login-password" class="saas-input login-input" placeholder="••••••••"
+                            style="padding-right: 2.8rem; width: 100%;" required>
+                        <button type="button" id="toggle-password-btn" class="toggle-password-btn" aria-label="Toggle password visibility"
+                            style="position: absolute; right: 12px; background: none; border: none; color: #000; cursor: pointer; display: flex; align-items: center; padding: 0; outline: none; transition: opacity 0.2s;">
+                            <svg id="eye-icon" viewBox="0 0 24 24" width="20" height="20" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" id="email-signin-btn" class="btn btn-primary btn-login-submit"
+                    style="width: 100%;">
+                    Sign In
+                </button>
+                <div id="auth-loader" class="auth-loader">
+                    <div class="auth-loader-dot"></div>
+                    <div class="auth-loader-dot"></div>
+                    <div class="auth-loader-dot"></div>
+                </div>
+            </form>
+            <p id="auth-error"
+                style="display:none; color: var(--danger); margin-top: 20px; font-size: 0.85rem; font-weight: 500; text-align: center;">
+            </p>
+        </div>
+    </div>
+
+    <!-- App Shell -->
+    <div class="app-shell" id="app-shell" style="display: none;">
+
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img id="brand-logo" class="brand-logo" src="logo.webp" alt="Monster Estate"
+                    onerror="this.onerror=null; this.src=window.PLACEHOLDER_LOGO;">
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-item active" data-target="sec-add-property">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+                    </svg> Add Property
+                </div>
+                <div class="nav-item" data-target="sec-live-db">
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M3 3h18v18H3V3zm16 16V5H5v14h14zm-4-4h2v2h-2v-2zm-4 0h2v2h-2v-2zm-4 0h2v2H7v-2zm8-4h2v2h-2v-2zm-4 0h2v2h-2v-2zm-4 0h2v2H7v-2zm8-4h2v2h-2v-2zm-4 0h2v2h-2v-2zm-4 0h2v2H7V7z" />
+                    </svg> Live Database
+                </div>
+                <div class="nav-item" data-target="sec-leads">
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
+                    </svg> Leads
+                </div>
+                <div class="nav-item" data-target="sec-global-settings">
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z" />
+                    </svg> Settings
+                </div>
+                <div class="nav-item mobile-logout-btn" id="mobile-logout-btn">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg> Sign Out
+                </div>
+            </nav>
+            <div class="sidebar-footer">
+                <button id="logout-btn" class="btn btn-secondary" style="width: 100%;">Sign Out</button>
+            </div>
+        </aside>
+
+        <main class="workspace">
+
+            <div class="top-bar">
+                <div></div>
+                <div class="sync-status">
+                    <span id="last-sync-time">Last synced: Just now</span>
+                    <button id="force-sync-btn" class="sync-btn"><svg viewBox="0 0 24 24" width="14" height="14"
+                            fill="currentColor">
+                            <path
+                                d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" />
+                        </svg> Refresh</button>
+                </div>
+            </div>
+
+            <!-- Add Property Section -->
+            <section id="sec-add-property" class="view-section active">
+                <header class="section-header">
+                    <h2>Property Creator</h2>
+                    <p>Deploy a new listing to the global network.</p>
+                </header>
+
+                <div class="glass-card" style="max-width: 900px;">
+                    <form id="property-form">
+
+                        <div class="form-grid full">
+                            <div class="form-group">
+                                <label for="images">Property Visuals (First image is thumbnail)</label>
+                                <div class="image-upload-zone" id="upload-zone-trigger">
+                                    <input type="file" id="images" style="display:none;" accept="image/*" multiple>
+                                    <svg viewBox="0 0 24 24" width="32" height="32" fill="var(--ink-soft)"
+                                        style="margin-bottom:10px;">
+                                        <path
+                                            d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-5.04-6.71l-2.75 3.54-1.96-2.36L6.5 17h11l-3.54-4.71z" />
+                                    </svg>
+                                    <p style="color: var(--ink-faint); font-size: 0.85rem;">Click to browse images (up
+                                        to 5 max)</p>
+                                    <div id="image-preview-container" class="image-preview-grid"
+                                        style="justify-content: center;"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="prop-category">Category</label>
+                                <select id="prop-category" class="saas-select" required>
+                                    <option value="Residential">Residential</option>
+                                    <option value="Commercial">Commercial</option>
+                                    <option value="Industrial">Industrial</option>
+                                    <option value="Land">Land</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Dynamic Fields Container (Populated by JS) -->
+                        <div id="dynamic-fields"></div>
+
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="prop-status">Status</label>
+                                <select id="prop-status" class="saas-select">
+                                    <option value="active">Active</option>
+                                    <option value="sold">Sold</option>
+                                    <option value="hidden">Hidden</option>
+                                </select>
+                            </div>
+                            <div class="form-group"
+                                style="justify-content: center; align-items: flex-start; padding-top: 15px;">
+                                <label class="toggle-wrapper">
+                                    <input type="checkbox" id="prop-featured" class="toggle-checkbox">
+                                    <div class="toggle-slider"></div>
+                                    <span
+                                        style="font-size: 0.85rem; font-weight: 600; color: var(--ink);">FEATURED</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="submit-btn" class="btn btn-primary"
+                            style="width: 100%; margin-top: 1rem;">
+                            Publish Property
+                        </button>
+                        <p id="image-required-warning" style="display: none; text-align: center; color: var(--danger); font-size: 0.85rem; margin-top: 12px; font-weight: 600; align-items: center; justify-content: center; gap: 6px;">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                                <line x1="12" y1="9" x2="12" y2="13"></line>
+                                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                            </svg>
+                            Please select at least 1 image to publish this property.
+                        </p>
+                        <p id="upload-warning-text"
+                            style="display: none; text-align: center; color: var(--danger); font-size: 0.85rem; margin-top: 12px; font-weight: 600;">
+                            Please do not close or minimize the app while uploading.</p>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Live Database Section -->
+            <section id="sec-live-db" class="view-section">
+                <header class="section-header">
+                    <h2>Live Database</h2>
+                    <p>Command center for all active and sold listings.</p>
+                </header>
+
+                <!-- Premium Search Bar -->
+                <div class="search-bar-wrapper">
+                    <div class="search-bar">
+                        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                        <input type="text" id="db-search" placeholder="" autocomplete="off" aria-label="Search properties">
+                        <button id="filter-toggle-btn" class="filter-icon-btn" aria-label="Toggle filters">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                            </svg>
+                        </button>
+                    </div>
+                    <div id="search-suggestions" class="search-suggestions"></div>
+
+                    <div id="filter-panel" class="filter-panel">
+                        <div class="filter-grid">
+                            <div class="filter-group">
+                                <label for="filter-category">Category</label>
+                                <select id="filter-category" class="saas-select">
+                                    <option value="">All Categories</option>
+                                    <option value="Residential">Residential</option>
+                                    <option value="Commercial">Commercial</option>
+                                    <option value="Industrial">Industrial</option>
+                                    <option value="Land">Land</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label for="filter-sub-category">Sub-Category</label>
+                                <select id="filter-sub-category" class="saas-select">
+                                    <option value="">Any</option>
+                                    <!-- Populated dynamically -->
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label for="filter-status">Status</label>
+                                <select id="filter-status" class="saas-select">
+                                    <option value="">All Statuses</option>
+                                    <option value="active">Active</option>
+                                    <option value="sold">Sold</option>
+                                    <option value="hidden">Hidden</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label for="filter-date-from">Date From</label>
+                                <input type="date" id="filter-date-from" class="saas-input">
+                            </div>
+                            <div class="filter-group">
+                                <label for="filter-date-to">Date To</label>
+                                <input type="date" id="filter-date-to" class="saas-input">
+                            </div>
+                        </div>
+                        <div class="filter-actions">
+                            <button id="clear-filters-btn" class="btn btn-secondary"
+                                style="padding: 0.6rem 1.2rem; font-size: 0.85rem;">Clear All</button>
+                            <button id="apply-filters-btn" class="btn btn-primary"
+                                style="padding: 0.6rem 1.2rem; font-size: 0.85rem;">Apply Filters</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Stats Overview Panel -->
+                <div id="stats-row" class="stats-row">
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-total">0</div>
+                        <div class="stat-label">Total Properties</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-active">0</div>
+                        <div class="stat-label">Active Listings</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-sold">0</div>
+                        <div class="stat-label">Sold Properties</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-leads">0</div>
+                        <div class="stat-label">Total Leads</div>
+                    </div>
+                </div>
+
+                <div id="properties-grid" class="properties-grid">
+                    <!-- Cards injected via JS -->
+                </div>
+
+                <div id="pagination-controls" class="pagination-controls"></div>
+            </section>
+
+            <!-- Leads Section -->
+            <section id="sec-leads" class="view-section">
+                <header class="section-header">
+                    <h2>Client Leads</h2>
+                    <p>Track and manage potential client inquiries.</p>
+                </header>
+                <div class="table-container">
+                    <table class="leads-table">
+                        <thead>
+                            <tr>
+                                 <th>Client Name</th>
+                                 <th>Contact</th>
+                                 <th>Date</th>
+                                 <th>Status</th>
+                                 <th>Action</th>
+                             </tr>
+                        </thead>
+                        <tbody id="leads-tbody">
+                            <!-- Rows injected via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Global Settings Section -->
+            <section id="sec-global-settings" class="view-section">
+                <header class="section-header">
+                    <h2>Global Configuration</h2>
+                    <p>Control the core variables of your platform.</p>
+                </header>
+                <div class="glass-card" style="max-width: 800px;">
+                    <form id="settings-form">
+
+                        <div class="form-group" style="margin-bottom: 2rem;">
+                            <label class="toggle-wrapper">
+                                <input type="checkbox" id="set-maintenance" class="toggle-checkbox">
+                                <div class="toggle-slider"></div>
+                                <span style="font-size: 0.9rem; font-weight: 700; color: var(--danger);">MAINTENANCE
+                                    MODE (OFFLINE)</span>
+                            </label>
+                        </div>
+
+                        <h4 style="margin-bottom: 1rem; color: var(--ink);">Branding</h4>
+                        <div class="form-grid full">
+                            <div class="form-group">
+                                <label for="set-logo">Logo URL</label>
+                                <div style="display:flex; gap: 15px; align-items:center;">
+                                    <input type="text" id="set-logo" class="saas-input" placeholder="e.g. logo.webp or https://..." required style="flex:1;">
+                                    <img id="logo-preview" src="" alt="Logo Preview" style="width:60px; height:60px; object-fit:contain; border:1px solid var(--line-strong); background:var(--paper); display:none; border-radius:var(--radius);">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="set-hero">Hero Banner Image URL</label>
+                                <div style="display:flex; gap: 15px; align-items:center;">
+                                    <input type="text" id="set-hero" class="saas-input" placeholder="e.g. hero.webp or https://..." required style="flex:1;">
+                                    <img id="hero-preview" src="" alt="Hero Preview" style="width:100px; height:60px; object-fit:cover; border:1px solid var(--line-strong); background:var(--paper); display:none; border-radius:var(--radius);">
+                                </div>
+                            </div>
+                        </div>
+
+                        <h4 style="margin-bottom: 1rem; color: var(--ink); margin-top: 1rem;">Contact Info</h4>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="set-whatsapp">WhatsApp Number</label>
+                                <input type="text" id="set-whatsapp" class="saas-input" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="set-email">Support Email</label>
+                                <input type="email" id="set-email" class="saas-input" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="set-address">Office Address</label>
+                                <input type="text" id="set-address" class="saas-input" required>
+                            </div>
+                        </div>
+
+                        <h4 style="margin-bottom: 1rem; color: var(--ink); margin-top: 1rem;">Social Links</h4>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="set-instagram">Instagram URL</label>
+                                <input type="url" id="set-instagram" class="saas-input">
+                            </div>
+                            <div class="form-group">
+                                <label for="set-facebook">Facebook URL</label>
+                                <input type="url" id="set-facebook" class="saas-input">
+                            </div>
+                            <div class="form-group">
+                                <label for="set-youtube">YouTube URL</label>
+                                <input type="url" id="set-youtube" class="saas-input">
+                            </div>
+                        </div>
+
+                        <button type="submit" id="save-settings-btn" class="btn btn-primary" style="margin-top: 1rem;">
+                            Deploy Settings
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Edit Property Modal -->
+    <div id="edit-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Property</h3>
+                <button class="modal-close" id="close-modal" aria-label="Close modal">&times;</button>
+            </div>
+            <form id="edit-property-form">
+                <input type="hidden" id="edit-id">
+
+                <div class="form-grid full">
+                    <div class="form-group">
+                        <label>Property Visuals</label>
+                        <div class="image-upload-zone" id="edit-upload-zone-trigger" style="cursor: default;">
+                            <p style="color: var(--ink-faint); font-size: 0.85rem; margin-bottom: 15px;">Images attached
+                                to this property</p>
+                            <div id="edit-image-preview-container" class="image-preview-grid"
+                                style="justify-content: center;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="edit-category">Category</label>
+                        <select id="edit-category" class="saas-select" required>
+                            <option value="Residential">Residential</option>
+                            <option value="Commercial">Commercial</option>
+                            <option value="Industrial">Industrial</option>
+                            <option value="Land">Land</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Dynamic Fields Container (Populated by JS) -->
+                <div id="edit-dynamic-fields"></div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="edit-status">Status</label>
+                        <select id="edit-status" class="saas-select">
+                            <option value="active">Active</option>
+                            <option value="sold">Sold</option>
+                            <option value="hidden">Hidden</option>
+                        </select>
+                    </div>
+                    <div class="form-group"
+                        style="justify-content: center; align-items: flex-start; padding-top: 15px;">
+                        <label class="toggle-wrapper">
+                            <input type="checkbox" id="edit-featured" class="toggle-checkbox">
+                            <div class="toggle-slider"></div>
+                            <span style="font-size: 0.85rem; font-weight: 600; color: var(--ink);">FEATURED</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button type="submit" id="save-edit-btn" class="btn btn-primary" style="flex: 2;">Save
+                        Changes</button>
+                    <button type="button" id="delete-prop-btn" class="btn btn-danger" style="flex: 1;">Delete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Premium Logout Modal -->
+    <div id="logout-modal" class="modal-overlay">
+        <div class="glass-card logout-modal-content">
+            <div class="logout-icon">
+                <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+            </div>
+            <h3>Ready to Leave?</h3>
+            <p>You are about to securely sign out of your session. Do you wish to proceed?</p>
+            <div class="logout-actions">
+                <button type="button" id="confirm-logout-btn" class="btn btn-primary" style="flex: 1;">Confirm</button>
+                <button type="button" id="cancel-logout-btn" class="btn btn-secondary" style="flex: 1;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Premium Delete Property Modal -->
+    <div id="delete-modal" class="modal-overlay">
+        <div class="glass-card logout-modal-content">
+            <div class="logout-icon" style="color: var(--danger); background: rgba(255, 59, 48, 0.1);">
+                <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                </svg>
+            </div>
+            <h3>Delete Property?</h3>
+            <p>Are you absolutely sure you want to delete this property? This action cannot be undone.</p>
+            <div class="logout-actions">
+                <input type="hidden" id="delete-target-id">
+                <button type="button" id="confirm-delete-btn" class="btn btn-danger" style="flex: 1;">Delete</button>
+                <button type="button" id="cancel-delete-btn" class="btn btn-secondary" style="flex: 1;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Full-Screen Image Lightbox -->
+    <div id="image-lightbox" class="modal-overlay lightbox-overlay">
+        <button class="lightbox-close" id="close-lightbox" title="Close Lightbox">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        </button>
+        <img id="lightbox-img" src="" alt="Full Screen Preview">
+    </div>
+
+    <!-- AI Suggestion Modal -->
+    <div id="ai-modal-overlay" class="ai-modal-overlay">
+        <div class="ai-modal">
+            <div class="ai-modal-header">
+                <h3>✨ AI Suggestions</h3>
+                <button id="ai-modal-close" class="ai-modal-close">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            
+            <div id="ai-modal-body" class="ai-modal-body">
+                <!-- Content injected by JS -->
+                <div class="ai-loading-state">
+                    <div class="ai-spinner"></div>
+                    <p>Analyzing and generating suggestions...</p>
+                </div>
+            </div>
+
+            <div class="ai-modal-footer">
+                <label class="toggle-wrapper" style="opacity: 0; pointer-events: none;" id="ai-apply-all-wrapper">
+                    <input type="checkbox" id="ai-apply-all-toggle" class="toggle-checkbox" checked>
+                    <div class="toggle-slider"></div>
+                    <span style="font-size: 0.85rem; font-weight: 700; color: var(--ink);">Apply All</span>
+                </label>
+                <button id="ai-confirm-btn" class="btn btn-primary" disabled>Confirm & Apply</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+
+</html>
